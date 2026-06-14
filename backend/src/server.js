@@ -26,10 +26,22 @@ app.set("trust proxy", 1);
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-      const error = new Error(`CORS origin not allowed: ${origin}`);
-      error.statusCode = 403;
-      callback(error);
+      // Allow requests with no origin (Postman, curl, mobile apps)
+      if (!origin) return callback(null, true);
+
+      // Allow whitelisted origins from CLIENT_URL env var
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+
+      // Always allow localhost in any environment (for dev/testing)
+      if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
+
+      // Log blocked origins in production to help diagnose misconfigs
+      if (ENV.NODE_ENV === "production") {
+        console.warn(`[CORS] Blocked origin: ${origin} | Allowed: ${ALLOWED_ORIGINS.join(", ")}`);
+      }
+
+      // Return null (no header) instead of throwing — throwing strips all CORS headers
+      return callback(null, false);
     },
     credentials: true,
   })
