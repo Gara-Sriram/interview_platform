@@ -5,10 +5,12 @@ import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ENV } from "../lib/env.js";
 
+const isProduction = ENV.NODE_ENV === "production";
+
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: ENV.NODE_ENV === "production",
-  sameSite: "strict",
+  secure: isProduction,          // HTTPS only in production
+  sameSite: isProduction ? "none" : "strict", // "none" required for cross-domain (Vercel ↔ Render)
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
 };
 
