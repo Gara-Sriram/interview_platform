@@ -32,6 +32,9 @@ app.use(
       // Allow whitelisted origins from CLIENT_URL env var
       if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
 
+      // Allow ALL Vercel preview & production deployments (*.vercel.app)
+      if (origin.endsWith(".vercel.app")) return callback(null, true);
+
       // Always allow localhost in any environment (for dev/testing)
       if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
 
