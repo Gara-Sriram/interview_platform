@@ -29,12 +29,14 @@ export const register = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Password must be at least 6 characters");
   }
 
-  const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const existingUser = await User.findOne({ email: normalizedEmail });
   if (existingUser) {
     throw new ApiError(409, "Email is already registered");
   }
 
-  const user = await User.create({ name: name.trim(), email, password });
+  const user = await User.create({ name: name.trim(), email: normalizedEmail, password });
 
   // Sync new user to Stream
   await upsertStreamUser({
