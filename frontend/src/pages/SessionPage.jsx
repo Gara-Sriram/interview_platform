@@ -1,15 +1,16 @@
-import { useUser } from "@clerk/clerk-react";
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useUser } from "../context/AuthContext";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useEndSession, useJoinSession, useSessionById } from "../hooks/useSessions";
 import { PROBLEMS } from "../data/problems";
 import { executeCode } from "../lib/piston";
 import Navbar from "../components/Navbar";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { getDifficultyBadgeClass } from "../lib/utils";
-import { Loader2Icon, LogOutIcon, PhoneOffIcon } from "lucide-react";
+import { CheckIcon, ClipboardIcon, Loader2Icon, LogOutIcon, PhoneOffIcon } from "lucide-react";
 import CodeEditorPanel from "../components/CodeEditorPanel";
 import OutputPanel from "../components/OutputPanel";
+import useCodeSync from "../hooks/useCodeSync";
 
 import useStreamClient from "../hooks/useStreamClient";
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
@@ -18,18 +19,34 @@ import VideoCallUI from "../components/VideoCallUI";
 function SessionPage() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get("token");
   const { user } = useUser();
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const joinRequestedRef = useRef(false);
 
-  const { data: sessionData, isLoading: loadingSession, refetch } = useSessionById(id);
+  const { data: sessionData, isLoading: loadingSession, error: sessionError, refetch } = useSessionById(id, inviteToken);
 
   const joinSessionMutation = useJoinSession();
   const endSessionMutation = useEndSession();
 
   const session = sessionData?.session;
-  const isHost = session?.host?.clerkId === user?.id;
-  const isParticipant = session?.participant?.clerkId === user?.id;
+  const isHost = session?.host?._id === user?._id;
+  const isParticipant = session?.participant?._id === user?._id;
+
+  // Build the invite link from the inviteToken stored in session (only host gets it)
+  const inviteLink = session?.inviteToken
+    ? `${window.location.origin}/session/${id}?token=${session.inviteToken}`
+    : null;
+
+  const handleCopyInviteLink = async () => {
+    if (!inviteLink) return;
+    await navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const { call, channel, chatClient, isInitializingCall, streamClient } = useStreamClient(
     session,
@@ -46,15 +63,33 @@ function SessionPage() {
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
   const [code, setCode] = useState(problemData?.starterCode?.[selectedLanguage] || "");
 
+  // ── Real-time code sync via Socket.io ────────────────────────────────────
+  const { emitCodeChange, emitLanguageChange, peerConnected, peerTyping } = useCodeSync({
+    sessionId: session?._id,
+    isActive: (isHost || isParticipant) && session?.status === "active",
+    onRemoteCodeChange: (remoteCode) => setCode(remoteCode),
+    onRemoteLangChange: ({ language, code: remoteCode }) => {
+      setSelectedLanguage(language);
+      setCode(remoteCode);
+      setOutput(null);
+    },
+  });
+  // ─────────────────────────────────────────────────────────────────────────
+
   // auto-join session if user is not already a participant and not the host
   useEffect(() => {
     if (!session || !user || loadingSession) return;
     if (isHost || isParticipant) return;
+    if (joinRequestedRef.current) return;
 
-    joinSessionMutation.mutate(id, { onSuccess: refetch });
-
-    // remove the joinSessionMutation, refetch from dependencies to avoid infinite loop
-  }, [session, user, loadingSession, isHost, isParticipant, id]);
+    joinRequestedRef.current = true;
+    joinSessionMutation.mutate({ id, token: inviteToken }, {
+      onSuccess: refetch,
+      onError: () => {
+        joinRequestedRef.current = false;
+      },
+    });
+  }, [session, user, loadingSession, isHost, isParticipant, id, joinSessionMutation, refetch]);
 
   // redirect the "participant" when session ends
   useEffect(() => {
@@ -73,19 +108,23 @@ function SessionPage() {
   const handleLanguageChange = (e) => {
     const newLang = e.target.value;
     setSelectedLanguage(newLang);
-    // use problem-specific starter code
     const starterCode = problemData?.starterCode?.[newLang] || "";
     setCode(starterCode);
     setOutput(null);
+    // Sync language + reset code to peer
+    emitLanguageChange(newLang, starterCode);
   };
 
   const handleRunCode = async () => {
     setIsRunning(true);
     setOutput(null);
 
-    const result = await executeCode(selectedLanguage, code);
-    setOutput(result);
-    setIsRunning(false);
+    try {
+      const result = await executeCode(selectedLanguage, code);
+      setOutput(result);
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   const handleEndSession = () => {
@@ -94,6 +133,38 @@ function SessionPage() {
       endSessionMutation.mutate(id, { onSuccess: () => navigate("/dashboard") });
     }
   };
+
+  if (loadingSession) {
+    return (
+      <div className="h-screen bg-base-100 flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2Icon className="w-10 h-10 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionError) {
+    return (
+      <div className="h-screen bg-base-100 flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="card bg-base-100 border border-base-300 max-w-md w-full">
+            <div className="card-body text-center">
+              <h1 className="card-title justify-center">Unable to load session</h1>
+              <p className="text-base-content/70">
+                {sessionError.response?.data?.message || "Please try again from the dashboard."}
+              </p>
+              <button className="btn btn-primary" onClick={() => navigate("/dashboard")}>
+                Back to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-base-100 flex flex-col">
@@ -123,7 +194,25 @@ function SessionPage() {
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-col items-end gap-2">
+                        {/* Live peer status */}
+                        <div className="flex items-center gap-2">
+                          {peerTyping ? (
+                            <span className="text-xs text-warning animate-pulse font-medium">
+                              ✏️ Collaborator is typing...
+                            </span>
+                          ) : peerConnected ? (
+                            <span className="flex items-center gap-1.5 text-xs text-success font-medium">
+                              <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                              Collaborator connected
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1.5 text-xs text-base-content/40 font-medium">
+                              <span className="w-2 h-2 rounded-full bg-base-content/30" />
+                              Waiting for collaborator...
+                            </span>
+                          )}
+                        </div>
                         <span
                           className={`badge badge-lg ${getDifficultyBadgeClass(
                             session?.difficulty
@@ -132,6 +221,24 @@ function SessionPage() {
                           {session?.difficulty.slice(0, 1).toUpperCase() +
                             session?.difficulty.slice(1) || "Easy"}
                         </span>
+
+                        {/* Invite link — host only */}
+                        {isHost && inviteLink && session?.status === "active" && (
+                          <button
+                            id="btn-copy-invite"
+                            onClick={handleCopyInviteLink}
+                            className={`btn btn-sm gap-2 transition-all duration-200 ${
+                              copied ? "btn-success" : "btn-outline"
+                            }`}
+                          >
+                            {copied ? (
+                              <><CheckIcon className="w-4 h-4" /> Copied!</>
+                            ) : (
+                              <><ClipboardIcon className="w-4 h-4" /> Copy Invite Link</>
+                            )}
+                          </button>
+                        )}
+
                         {isHost && session?.status === "active" && (
                           <button
                             onClick={handleEndSession}
@@ -237,7 +344,10 @@ function SessionPage() {
                       code={code}
                       isRunning={isRunning}
                       onLanguageChange={handleLanguageChange}
-                      onCodeChange={(value) => setCode(value)}
+                      onCodeChange={(value) => {
+                        setCode(value);
+                        emitCodeChange(value);
+                      }}
                       onRunCode={handleRunCode}
                     />
                   </Panel>

@@ -1,8 +1,11 @@
-import { useUser } from "@clerk/clerk-react";
+import { useAuth } from "../context/AuthContext";
 import { ArrowRightIcon, SparklesIcon, ZapIcon } from "lucide-react";
 
 function WelcomeSection({ onCreateSession }) {
-  const { user } = useUser();
+  const { user } = useAuth();
+
+  // Show first name only (e.g. "John" from "John Doe")
+  const firstName = user?.name?.split(" ")[0] || "there";
 
   return (
     <div className="relative overflow-hidden">
@@ -14,7 +17,7 @@ function WelcomeSection({ onCreateSession }) {
                 <SparklesIcon className="w-6 h-6 text-white" />
               </div>
               <h1 className="text-5xl font-black bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-                Welcome back, {user?.firstName || "there"}!
+                Welcome back, {firstName}!
               </h1>
             </div>
             <p className="text-xl text-base-content/60 ml-16">

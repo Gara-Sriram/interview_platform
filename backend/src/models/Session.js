@@ -5,6 +5,8 @@ const sessionSchema = new mongoose.Schema(
     problem: {
       type: String,
       required: true,
+      trim: true,
+      maxlength: 150,
     },
     difficulty: {
       type: String,
@@ -30,10 +32,22 @@ const sessionSchema = new mongoose.Schema(
     callId: {
       type: String,
       default: "",
+      unique: true,
+      sparse: true,
+    },
+    // secret token — only the host knows this; required to join
+    inviteToken: {
+      type: String,
+      required: true,
+      unique: true,
     },
   },
   { timestamps: true }
 );
+
+sessionSchema.index({ status: 1, createdAt: -1 });
+sessionSchema.index({ host: 1, status: 1, createdAt: -1 });
+sessionSchema.index({ participant: 1, status: 1, createdAt: -1 });
 
 const Session = mongoose.model("Session", sessionSchema);
 

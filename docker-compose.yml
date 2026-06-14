@@ -1,0 +1,56 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env
+    environment:
+      PISTON_API_URL: http://piston:2000/api/v2
+    ports:
+      - "3000:3000"
+    depends_on:
+      piston-init:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY}
+        VITE_API_URL: /api
+        VITE_STREAM_API_KEY: ${VITE_STREAM_API_KEY}
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+  piston:
+    image: ghcr.io/engineer-man/piston:latest
+    privileged: true
+    ports:
+      - "2000:2000"
+    volumes:
+      - piston-packages:/piston/packages
+
+  piston-init:
+    image: curlimages/curl:8.10.1
+    depends_on:
+      piston:
+        condition: service_started
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        until curl -fsS http://piston:2000/api/v2/runtimes >/dev/null; do sleep 2; done
+        echo "Installing Node runtime..."
+        curl -fsS -X POST http://piston:2000/api/v2/packages -H "Content-Type: application/json" -d "{\"language\":\"node\",\"version\":\"18.x\"}"
+        echo "Installing Python runtime..."
+        curl -fsS -X POST http://piston:2000/api/v2/packages -H "Content-Type: application/json" -d "{\"language\":\"python\",\"version\":\"3.x\"}"
+        echo "Installing Java runtime..."
+        curl -fsS -X POST http://piston:2000/api/v2/packages -H "Content-Type: application/json" -d "{\"language\":\"java\",\"version\":\"*\"}"
+        echo "Installed runtimes:"
+        curl -fsS http://piston:2000/api/v2/runtimes
+    restart: "no"
+
+volumes:
+  piston-packages:

@@ -14,11 +14,19 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
   useEffect(() => {
     let videoCall = null;
     let chatClientInstance = null;
+    let isMounted = true;
 
     const initCall = async () => {
-      if (!session?.callId) return;
-      if (!isHost && !isParticipant) return;
-      if (session.status === "completed") return;
+      if (!session?.callId || session.status === "completed") {
+        setIsInitializingCall(false);
+        return;
+      }
+
+      if (!isHost && !isParticipant) {
+        return;
+      }
+
+      setIsInitializingCall(true);
 
       try {
         const { token, userId, userName, userImage } = await sessionApi.getStreamToken();
@@ -32,10 +40,12 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
           token
         );
 
+        if (!isMounted) return;
         setStreamClient(client);
 
         videoCall = client.call("default", session.callId);
         await videoCall.join({ create: true });
+        if (!isMounted) return;
         setCall(videoCall);
 
         const apiKey = import.meta.env.VITE_STREAM_API_KEY;
@@ -49,16 +59,17 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
           },
           token
         );
+        if (!isMounted) return;
         setChatClient(chatClientInstance);
 
         const chatChannel = chatClientInstance.channel("messaging", session.callId);
         await chatChannel.watch();
+        if (!isMounted) return;
         setChannel(chatChannel);
       } catch (error) {
-        toast.error("Failed to join video call");
-        console.error("Error init call", error);
+        if (isMounted) toast.error(error.response?.data?.message || "Failed to join video call");
       } finally {
-        setIsInitializingCall(false);
+        if (isMounted) setIsInitializingCall(false);
       }
     };
 
@@ -66,14 +77,15 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
 
     // cleanup - performance reasons
     return () => {
+      isMounted = false;
       // iife
       (async () => {
         try {
           if (videoCall) await videoCall.leave();
           if (chatClientInstance) await chatClientInstance.disconnectUser();
           await disconnectStreamClient();
-        } catch (error) {
-          console.error("Cleanup error:", error);
+        } catch {
+          // Best-effort cleanup during route changes.
         }
       })();
     };

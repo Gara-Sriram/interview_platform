@@ -12,13 +12,16 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@clerk/express": "^1.7.41",
     "@stream-io/node-sdk": "^0.7.12",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "inngest": "^3.44.3",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.19.1",
+    "socket.io": "^4.8.3",
     "stream-chat": "^9.24.0"
   },
   "devDependencies": {

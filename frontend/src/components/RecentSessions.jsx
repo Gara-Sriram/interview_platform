@@ -2,7 +2,7 @@ import { Code2, Clock, Users, Trophy, Loader } from "lucide-react";
 import { getDifficultyBadgeClass } from "../lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
-function RecentSessions({ sessions, isLoading }) {
+function RecentSessions({ sessions, isLoading, error }) {
   return (
     <div className="card bg-base-100 border-2 border-accent/20 hover:border-accent/30 mt-8">
       <div className="card-body">
@@ -17,6 +17,10 @@ function RecentSessions({ sessions, isLoading }) {
           {isLoading ? (
             <div className="col-span-full flex items-center justify-center py-20">
               <Loader className="w-10 h-10 animate-spin text-primary" />
+            </div>
+          ) : error ? (
+            <div className="col-span-full alert alert-error">
+              <span>{error.response?.data?.message || "Failed to load recent sessions"}</span>
             </div>
           ) : sessions.length > 0 ? (
             sessions.map((session) => (

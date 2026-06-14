@@ -10,24 +10,31 @@ export const sessionApi = {
     const response = await axiosInstance.get("/sessions/active");
     return response.data;
   },
+
   getMyRecentSessions: async () => {
     const response = await axiosInstance.get("/sessions/my-recent");
     return response.data;
   },
 
-  getSessionById: async (id) => {
-    const response = await axiosInstance.get(`/sessions/${id}`);
+  // Pass token as query param so the backend can verify access
+  getSessionById: async (id, token) => {
+    const params = token ? { token } : {};
+    const response = await axiosInstance.get(`/sessions/${id}`, { params });
     return response.data;
   },
 
-  joinSession: async (id) => {
-    const response = await axiosInstance.post(`/sessions/${id}/join`);
+  // Pass invite token so the backend can validate the joiner
+  joinSession: async ({ id, token }) => {
+    const params = token ? { token } : {};
+    const response = await axiosInstance.post(`/sessions/${id}/join`, {}, { params });
     return response.data;
   },
+
   endSession: async (id) => {
     const response = await axiosInstance.post(`/sessions/${id}/end`);
     return response.data;
   },
+
   getStreamToken: async () => {
     const response = await axiosInstance.get(`/chat/token`);
     return response.data;

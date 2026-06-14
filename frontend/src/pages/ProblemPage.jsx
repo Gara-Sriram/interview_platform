@@ -85,24 +85,27 @@ function ProblemPage() {
     setIsRunning(true);
     setOutput(null);
 
-    const result = await executeCode(selectedLanguage, code);
-    setOutput(result);
-    setIsRunning(false);
+    try {
+      const result = await executeCode(selectedLanguage, code);
+      setOutput(result);
 
-    // check if code executed successfully and matches expected output
+      // check if code executed successfully and matches expected output
 
-    if (result.success) {
-      const expectedOutput = currentProblem.expectedOutput[selectedLanguage];
-      const testsPassed = checkIfTestsPassed(result.output, expectedOutput);
+      if (result.success) {
+        const expectedOutput = currentProblem.expectedOutput[selectedLanguage];
+        const testsPassed = checkIfTestsPassed(result.output, expectedOutput);
 
-      if (testsPassed) {
-        triggerConfetti();
-        toast.success("All tests passed! Great job!");
+        if (testsPassed) {
+          triggerConfetti();
+          toast.success("All tests passed! Great job!");
+        } else {
+          toast.error("Tests failed. Check your output!");
+        }
       } else {
-        toast.error("Tests failed. Check your output!");
+        toast.error("Code execution failed!");
       }
-    } else {
-      toast.error("Code execution failed!");
+    } finally {
+      setIsRunning(false);
     }
   };
 

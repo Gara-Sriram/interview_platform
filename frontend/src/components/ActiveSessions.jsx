@@ -10,7 +10,7 @@ import {
 import { Link } from "react-router";
 import { getDifficultyBadgeClass } from "../lib/utils";
 
-function ActiveSessions({ sessions, isLoading, isUserInSession }) {
+function ActiveSessions({ sessions, isLoading, error, isUserInSession }) {
   return (
     <div className="lg:col-span-2 card bg-base-100 border-2 border-primary/20 hover:border-primary/30 h-full">
       <div className="card-body">
@@ -21,7 +21,7 @@ function ActiveSessions({ sessions, isLoading, isUserInSession }) {
             <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-xl">
               <ZapIcon className="size-5" />
             </div>
-            <h2 className="text-2xl font-black">Live Sessions</h2>
+            <h2 className="text-2xl font-black">My Sessions</h2>
           </div>
 
           <div className="flex items-center gap-2">
@@ -35,6 +35,10 @@ function ActiveSessions({ sessions, isLoading, isUserInSession }) {
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
               <LoaderIcon className="size-10 animate-spin text-primary" />
+            </div>
+          ) : error ? (
+            <div className="alert alert-error">
+              <span>{error.response?.data?.message || "Failed to load active sessions"}</span>
             </div>
           ) : sessions.length > 0 ? (
             sessions.map((session) => (
@@ -98,7 +102,7 @@ function ActiveSessions({ sessions, isLoading, isUserInSession }) {
                 <SparklesIcon className="w-10 h-10 text-primary/50" />
               </div>
               <p className="text-lg font-semibold opacity-70 mb-1">No active sessions</p>
-              <p className="text-sm opacity-50">Be the first to create one!</p>
+              <p className="text-sm opacity-50">Create one and share the invite link!</p>
             </div>
           )}
         </div>

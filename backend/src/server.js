@@ -1,28 +1,95 @@
 import express from "express";
 import path from "path";
 import cors from "cors";
+import cookieParser from "cookie-parser";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import { serve } from "inngest/express";
-import { clerkMiddleware } from "@clerk/express";
 
-import { ENV } from "./lib/env.js";
+import { ALLOWED_ORIGINS, ENV } from "./lib/env.js";
 import { connectDB } from "./lib/db.js";
 import { inngest, functions } from "./lib/inngest.js";
+import { errorHandler, notFound } from "./middleware/errorHandler.js";
 
+import authRoutes from "./routes/authRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
+import codeRoutes from "./routes/codeRoutes.js";
 import sessionRoutes from "./routes/sessionRoute.js";
 
 const app = express();
+const httpServer = createServer(app); // wrap express in an HTTP server for socket.io
 
 const __dirname = path.resolve();
 
-// middleware
-app.use(express.json());
-// credentials:true meaning?? => server allows a browser to include cookies on request
-app.use(cors({ origin: ENV.CLIENT_URL, credentials: true }));
-app.use(clerkMiddleware()); // this adds auth field to request object: req.auth()
+app.set("trust proxy", 1);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      const error = new Error(`CORS origin not allowed: ${origin}`);
+      error.statusCode = 403;
+      callback(error);
+    },
+    credentials: true,
+  })
+);
+app.use(express.json({ limit: "1mb" }));
+app.use(cookieParser());
+
+// ─── Socket.io ────────────────────────────────────────────────────────────────
+const io = new Server(httpServer, {
+  cors: {
+    origin: ALLOWED_ORIGINS,
+    credentials: true,
+  },
+  // Force WebSocket only — Render free tier has no sticky sessions
+  // so HTTP long-polling would fail on multi-instance setups
+  transports: ["websocket"],
+});
+
+io.on("connection", (socket) => {
+  // Join a session room — each session gets its own isolated room
+  socket.on("join-session", (sessionId) => {
+    socket.join(sessionId);
+    // Notify others in the room that someone connected
+    socket.to(sessionId).emit("peer-connected");
+  });
+
+  // Broadcast code changes to everyone else in the room (not back to sender)
+  socket.on("code-change", ({ sessionId, code }) => {
+    socket.to(sessionId).emit("code-change", { code });
+  });
+
+  // Broadcast language change + the new starter code to reset both editors
+  socket.on("language-change", ({ sessionId, language, code }) => {
+    socket.to(sessionId).emit("language-change", { language, code });
+  });
+
+  // Typing indicator — let the peer know someone is typing
+  socket.on("typing-start", ({ sessionId }) => {
+    socket.to(sessionId).emit("peer-typing", true);
+  });
+
+  socket.on("typing-stop", ({ sessionId }) => {
+    socket.to(sessionId).emit("peer-typing", false);
+  });
+
+  socket.on("disconnecting", () => {
+    // Notify all rooms this socket was in
+    for (const room of socket.rooms) {
+      if (room !== socket.id) {
+        socket.to(room).emit("peer-disconnected");
+      }
+    }
+  });
+});
+// ──────────────────────────────────────────────────────────────────────────────
 
 app.use("/api/inngest", serve({ client: inngest, functions }));
+app.use("/api/auth", authRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/code", codeRoutes);
 app.use("/api/sessions", sessionRoutes);
 
 app.get("/health", (req, res) => {
@@ -38,10 +105,14 @@ if (ENV.NODE_ENV === "production") {
   });
 }
 
+app.use(notFound);
+app.use(errorHandler);
+
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(ENV.PORT, () => console.log("Server is running on port:", ENV.PORT));
+    // Listen on httpServer (not app.listen) so socket.io shares the same port
+    httpServer.listen(ENV.PORT, () => console.log("Server is running on port:", ENV.PORT));
   } catch (error) {
     console.error("💥 Error starting the server", error);
   }

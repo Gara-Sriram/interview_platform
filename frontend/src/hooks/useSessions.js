@@ -31,17 +31,19 @@ export const useMyRecentSessions = () => {
   return result;
 };
 
-export const useSessionById = (id) => {
+// token is the invite token from URL query param — forwarded to backend for access check
+export const useSessionById = (id, token) => {
   const result = useQuery({
-    queryKey: ["session", id],
-    queryFn: () => sessionApi.getSessionById(id),
+    queryKey: ["session", id, token],
+    queryFn: () => sessionApi.getSessionById(id, token),
     enabled: !!id,
-    refetchInterval: 5000, // refetch every 5 seconds to detect session status changes
+    refetchInterval: 5000,
   });
 
   return result;
 };
 
+// mutationFn receives { id, token } and passes token to backend
 export const useJoinSession = () => {
   const result = useMutation({
     mutationKey: ["joinSession"],
