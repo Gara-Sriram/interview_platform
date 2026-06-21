@@ -38,12 +38,16 @@ export const register = asyncHandler(async (req, res) => {
 
   const user = await User.create({ name: name.trim(), email: normalizedEmail, password });
 
-  // Sync new user to Stream
-  await upsertStreamUser({
-    id: user._id.toString(),
-    name: user.name,
-    image: user.profileImage,
-  });
+  // Sync to Stream — non-fatal: if Stream is misconfigured the user is still created
+  try {
+    await upsertStreamUser({
+      id: user._id.toString(),
+      name: user.name,
+      image: user.profileImage,
+    });
+  } catch (streamErr) {
+    console.error("[Stream] Failed to upsert user, skipping:", streamErr.message);
+  }
 
   const token = signToken(user._id);
   res.cookie("jwt", token, COOKIE_OPTIONS);
@@ -87,8 +91,8 @@ export const login = asyncHandler(async (req, res) => {
 export const logout = asyncHandler(async (_req, res) => {
   res.clearCookie("jwt", {
     httpOnly: true,
-    secure: ENV.NODE_ENV === "production",
-    sameSite: "strict",
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "strict",
   });
   res.status(200).json({ message: "Logged out successfully" });
 });
