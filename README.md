@@ -1,32 +1,8 @@
-Here's the **complete project description** written as if you built it end-to-end:
 
----
-
-## Resume Project Entry
-
-**Talent IQ — Real-Time Technical Interview Platform**
-`React • Node.js • Express • MongoDB • Socket.io • WebRTC • Docker • Vercel • Render`
-🔗 [Live Demo](https://interview-platform-nine-pi.vercel.app) | [GitHub](https://github.com/Gara-Sriram/interview_platform)
-
----
-
-## Full Description (For Portfolio / LinkedIn / README)
 
 > Talent IQ is a production-deployed, full-stack technical interview platform that replicates the experience of platforms like CoderPad and HackerRank Interview. It enables interviewers and candidates to conduct complete coding interviews in a single, unified interface — with real-time collaborative code editing, live video/audio, in-session chat, and instant multi-language code execution.
 
----
 
-## Bullet Points for Resume (Pick 4–5)
-
-- Architected and deployed a **full-stack real-time interview platform** (MERN stack) enabling live coding sessions with video, chat, and collaborative editing used end-to-end from authentication to deployment
-- Built **real-time collaborative code editing** using Socket.io with a custom `suppressNextEmit` ref pattern to prevent infinite broadcast loops; both participants see live keystroke-by-keystroke updates with typing indicators and connection status
-- Integrated **WebRTC video/audio calling and real-time chat** via Stream SDK with session-scoped rooms; implemented multi-language code execution (JavaScript, Python, Java, C++) using Piston API with live output rendering
-- Implemented **self-hosted authentication** from scratch using JWT (httpOnly cookies) + bcrypt — eliminating third-party auth dependency — with secure redirect-after-login preserving deep-linked session invite URLs through the auth flow
-- Designed **invite-only private sessions** using 40-character cryptographic tokens embedded in shareable URLs; server validates token on every join attempt, blocking unauthorized access with zero public session exposure
-- Solved **cross-domain cookie problem** in split deployment (Vercel frontend + Render backend) by configuring Vercel reverse proxy rewrites on `/api/*` — making cookies appear same-domain to the browser without changing any client code
-- Containerized full application with **Docker Compose** (separate containers for frontend, backend); configured WebSocket-only Socket.io transport for Render compatibility and wrote startup migration to auto-drop legacy database indexes
-
----
 
 ## Complete Feature List (For GitHub README or Portfolio Site)
 
