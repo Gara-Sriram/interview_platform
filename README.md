@@ -52,17 +52,3 @@
 - GitHub-based CI — every push to `main` auto-deploys to both Vercel and Render
 
 ---
-
-## One-Liner for Skills Section
-> **Talent IQ** — Production-deployed interview platform with WebRTC video, Socket.io collaborative editing, JWT auth, and invite-only sessions | *React, Node.js, MongoDB, Socket.io, Stream SDK, Docker, Vercel, Render*
-
----
-
-## What to Highlight Based on the Role
-
-| Role | What to Emphasize |
-|---|---|
-| **Backend SDE** | JWT auth from scratch, Socket.io sync architecture, MongoDB schema design, Vercel proxy solution, Docker |
-| **Frontend SDE** | Monaco editor integration, Socket.io hooks, AuthContext, React Router deep-link preservation, real-time UI |
-| **Full-Stack SDE** | End-to-end ownership — auth, real-time, deployment, debugging, production fixes |
-| **System Design** | WebSocket room architecture, invite token security model, cross-domain cookie strategy |
