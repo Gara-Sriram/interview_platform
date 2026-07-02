@@ -152,7 +152,7 @@ export const executeCode = asyncHandler(async (req, res) => {
   // - --memory: limit memory footprint (e.g. 128MB)
   // - --cpus 0.5: cap CPU time to 50% of single core
   // - --user 1000:1000: execute as unprivileged non-root user
-  const dockerCmd = `timeout ${config.timeout}s ${dockerPath} run --rm --network none --memory ${config.memory} --cpus 0.5 --user 1000:1000 -i ${config.image} ${commandToRun}`;
+  const dockerCmd = `timeout ${config.timeout}s ${dockerPath} run --rm --network none --memory ${config.memory} --cpus 0.5 --user 1000:1000 ${config.image} ${commandToRun}`;
 
   exec(dockerCmd, { timeout: (config.timeout + 2) * 1000 }, (error, stdout, stderr) => {
     // Check if timeout was triggered (exit code 124 from timeout command)
