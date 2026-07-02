@@ -20,6 +20,7 @@ try {
     } catch {}
   }
 }
+console.log(`[Execution Engine] Resolved docker path to: '${dockerPath}'`);
 
 
 const LANGUAGE_CONFIG = {
@@ -89,6 +90,15 @@ export const executeCode = asyncHandler(async (req, res) => {
         success: false,
         output: stdout || "",
         error: `Execution timed out (limit: ${config.timeout}s)`,
+      });
+    }
+
+    // Intercept missing docker client error
+    if (error && (error.message.includes("No such file or directory") || error.message.includes("not found"))) {
+      return res.status(200).json({
+        success: false,
+        output: "",
+        error: "Docker execution engine is not ready. Please ensure Docker is running on your host system. If running via Docker Compose, rebuild the container using 'docker compose up --build' to install the docker-cli.",
       });
     }
 
