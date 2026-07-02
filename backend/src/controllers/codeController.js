@@ -1,89 +1,36 @@
-import { ENV } from "../lib/env.js";
+import { exec } from "child_process";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { cleanString } from "../utils/validation.js";
 
 const LANGUAGE_CONFIG = {
   javascript: {
-    preferredVersion: "18.15.0",
-    aliases: ["javascript", "node", "nodejs"],
-    extension: "js",
+    image: "node:22-alpine",
+    execCmd: 'sh -c "echo \'$CODE_BASE64\' | base64 -d | node"',
+    memory: "128m",
+    timeout: 5,
   },
   python: {
-    preferredVersion: "3.10.0",
-    aliases: ["python", "python3"],
-    extension: "py",
+    image: "python:3.10-alpine",
+    execCmd: 'sh -c "echo \'$CODE_BASE64\' | base64 -d | python3"',
+    memory: "128m",
+    timeout: 5,
   },
   java: {
-    preferredVersion: "15.0.2",
-    aliases: ["java"],
-    extension: "java",
+    image: "eclipse-temurin:17-alpine",
+    execCmd: 'sh -c "cd /tmp && echo \'$CODE_BASE64\' | base64 -d > Main.java && javac Main.java && java Main"',
+    memory: "256m",
+    timeout: 5,
+  },
+  cpp: {
+    image: "frolvlad/alpine-gxx:latest",
+    execCmd: 'sh -c "cd /tmp && echo \'$CODE_BASE64\' | base64 -d > main.cpp && g++ -O2 -o main main.cpp && ./main"',
+    memory: "128m",
+    timeout: 5,
   },
 };
 
 const MAX_CODE_LENGTH = 50_000;
-const RUNTIMES_CACHE_TTL_MS = 30_000;
-let runtimesCache = { data: null, expiresAt: 0 };
-
-const formatEngineError = (data) => {
-  if (typeof data === "string") return data;
-  if (!data || typeof data !== "object") return "Unknown execution engine error";
-
-  return data.message || data.error || data.detail || JSON.stringify(data);
-};
-
-const fetchInstalledRuntimes = async () => {
-  if (runtimesCache.data && runtimesCache.expiresAt > Date.now()) {
-    return runtimesCache.data;
-  }
-
-  const response = await fetch(`${ENV.PISTON_API_URL}/runtimes`, {
-    signal: AbortSignal.timeout(10_000),
-  });
-
-  const text = await response.text();
-  let data;
-
-  try {
-    data = text ? JSON.parse(text) : [];
-  } catch {
-    throw new ApiError(502, "Execution engine returned an invalid runtimes response");
-  }
-
-  if (!response.ok) {
-    throw new ApiError(502, "Execution engine runtimes request failed", {
-      status: response.status,
-      error: formatEngineError(data),
-    });
-  }
-
-  runtimesCache = {
-    data,
-    expiresAt: data.length > 0 ? Date.now() + RUNTIMES_CACHE_TTL_MS : 0,
-  };
-  return data;
-};
-
-const runtimeMatchesLanguage = (runtime, aliases) => {
-  const names = [runtime.language, ...(runtime.aliases || [])]
-    .filter(Boolean)
-    .map((value) => value.toLowerCase());
-
-  return aliases.some((alias) => names.includes(alias));
-};
-
-const resolveRuntime = async (requestedLanguage, config) => {
-  const runtimes = await fetchInstalledRuntimes();
-  const candidates = runtimes.filter((runtime) => runtimeMatchesLanguage(runtime, config.aliases));
-
-  if (candidates.length === 0) {
-    throw new ApiError(503, `${requestedLanguage} runtime is not installed in the execution engine`, {
-      installed: runtimes.map((runtime) => `${runtime.language}-${runtime.version}`),
-    });
-  }
-
-  return candidates.find((runtime) => runtime.version === config.preferredVersion) || candidates[0];
-};
 
 export const executeCode = asyncHandler(async (req, res) => {
   const requestedLanguage = cleanString(req.body?.language, 30).toLowerCase();
@@ -102,58 +49,58 @@ export const executeCode = asyncHandler(async (req, res) => {
     throw new ApiError(413, `Code exceeds ${MAX_CODE_LENGTH} characters`);
   }
 
-  const runtime = await resolveRuntime(requestedLanguage, config);
+  // Base64 encode code for command injection security
+  const codeBase64 = Buffer.from(code).toString("base64");
 
-  const response = await fetch(`${ENV.PISTON_API_URL}/execute`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    signal: AbortSignal.timeout(15_000),
-    body: JSON.stringify({
-      language: runtime.language,
-      version: runtime.version,
-      files: [
-        {
-          name: `main.${config.extension}`,
-          content: code,
-        },
-      ],
-    }),
-  });
+  // Safely interpolate base64 code string
+  const commandToRun = config.execCmd.replace("$CODE_BASE64", codeBase64);
 
-  const text = await response.text();
-  let data;
+  // Construct docker run command with resource constraints
+  // - --rm: automatically remove container on exit
+  // - --network none: disable internet access inside sandbox
+  // - --memory: limit memory footprint (e.g. 128MB)
+  // - --cpus 0.5: cap CPU time to 50% of single core
+  // - --user 1000:1000: execute as unprivileged non-root user
+  const dockerCmd = `timeout ${config.timeout}s docker run --rm --network none --memory ${config.memory} --cpus 0.5 --user 1000:1000 -i ${config.image} ${commandToRun}`;
 
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    throw new ApiError(502, "Execution engine returned an invalid response");
-  }
+  exec(dockerCmd, { timeout: (config.timeout + 2) * 1000 }, (error, stdout, stderr) => {
+    // Check if timeout was triggered (exit code 124 from timeout command)
+    if (error && (error.code === 124 || error.signal === "SIGTERM" || error.killed)) {
+      return res.status(200).json({
+        success: false,
+        output: stdout || "",
+        error: `Execution timed out (limit: ${config.timeout}s)`,
+      });
+    }
 
-  if (!response.ok) {
-    throw new ApiError(502, "Execution engine request failed", {
-      status: response.status,
-      error: formatEngineError(data),
+    // Log unexpected errors (e.g. Docker daemon connection errors)
+    if (error && error.code !== 0 && error.code !== 124) {
+      console.error(`[Execution Engine Error] Exit Code: ${error.code}. Msg: ${error.message}`);
+    }
+
+    const output = stdout || "";
+    const errorOutput = stderr || "";
+
+    if (errorOutput) {
+      return res.status(200).json({
+        success: false,
+        output,
+        error: errorOutput,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      output: output || "No output",
     });
-  }
-
-  const output = data.run?.output || "";
-  const stderr = data.run?.stderr || "";
-  const signal = data.run?.signal || "";
-
-  if (stderr || signal) {
-    return res.status(200).json({
-      success: false,
-      output,
-      error: stderr || `Execution stopped with signal ${signal}`,
-    });
-  }
-
-  res.status(200).json({
-    success: true,
-    output: output || "No output",
   });
 });
 
 export const getCodeRuntimes = asyncHandler(async (_req, res) => {
-  res.status(200).json({ runtimes: await fetchInstalledRuntimes() });
+  res.status(200).json({
+    runtimes: Object.keys(LANGUAGE_CONFIG).map((lang) => ({
+      language: lang,
+      version: LANGUAGE_CONFIG[lang].image,
+    })),
+  });
 });

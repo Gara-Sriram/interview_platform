@@ -15,7 +15,6 @@ export const ENV = {
   INNGEST_SIGNING_KEY: process.env.INNGEST_SIGNING_KEY,
   STREAM_API_KEY: process.env.STREAM_API_KEY,
   STREAM_API_SECRET: process.env.STREAM_API_SECRET,
-  PISTON_API_URL: optional("PISTON_API_URL", "http://localhost:2000/api/v2"),
 };
 
 const requiredKeys = ["DB_URL", "CLIENT_URL", "JWT_SECRET", "STREAM_API_KEY", "STREAM_API_SECRET"];
