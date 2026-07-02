@@ -1,7 +1,26 @@
-import { exec } from "child_process";
+import { exec, execSync } from "child_process";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { cleanString } from "../utils/validation.js";
+
+// Dynamically resolve the absolute path of the docker binary to prevent any PATH resolution issues inside exec
+let dockerPath = "docker";
+try {
+  const path = execSync("which docker", { encoding: "utf8" }).trim();
+  if (path) {
+    dockerPath = path;
+  }
+} catch (err) {
+  const standardPaths = ["/usr/bin/docker", "/usr/local/bin/docker"];
+  for (const p of standardPaths) {
+    try {
+      execSync(`${p} --version`);
+      dockerPath = p;
+      break;
+    } catch {}
+  }
+}
+
 
 const LANGUAGE_CONFIG = {
   javascript: {
@@ -20,13 +39,13 @@ const LANGUAGE_CONFIG = {
     image: "eclipse-temurin:17-alpine",
     execCmd: 'sh -c "cd /tmp && echo \'$CODE_BASE64\' | base64 -d > Main.java && javac Main.java && java Main"',
     memory: "256m",
-    timeout: 5,
+    timeout: 10,
   },
   cpp: {
     image: "frolvlad/alpine-gxx:latest",
     execCmd: 'sh -c "cd /tmp && echo \'$CODE_BASE64\' | base64 -d > main.cpp && g++ -O2 -o main main.cpp && ./main"',
     memory: "128m",
-    timeout: 5,
+    timeout: 10,
   },
 };
 
@@ -61,7 +80,7 @@ export const executeCode = asyncHandler(async (req, res) => {
   // - --memory: limit memory footprint (e.g. 128MB)
   // - --cpus 0.5: cap CPU time to 50% of single core
   // - --user 1000:1000: execute as unprivileged non-root user
-  const dockerCmd = `timeout ${config.timeout}s docker run --rm --network none --memory ${config.memory} --cpus 0.5 --user 1000:1000 -i ${config.image} ${commandToRun}`;
+  const dockerCmd = `timeout ${config.timeout}s ${dockerPath} run --rm --network none --memory ${config.memory} --cpus 0.5 --user 1000:1000 -i ${config.image} ${commandToRun}`;
 
   exec(dockerCmd, { timeout: (config.timeout + 2) * 1000 }, (error, stdout, stderr) => {
     // Check if timeout was triggered (exit code 124 from timeout command)
