@@ -1,48 +1,60 @@
-import { useUser } from "./context/AuthContext";
-import { Navigate, Route, Routes, useLocation } from "react-router";
-import HomePage from "./pages/HomePage";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 
-import { Toaster } from "react-hot-toast";
-import DashboardPage from "./pages/DashboardPage";
-import ProblemPage from "./pages/ProblemPage";
-import ProblemsPage from "./pages/ProblemsPage";
+// Auth pages
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
+
+// Dashboard placeholders (built in Part 7)
+import Dashboard from "./pages/Dashboard";
 import SessionPage from "./pages/SessionPage";
-import LoginPage from "./pages/LoginPage";
-
-// Redirect to login while preserving the full intended URL (including ?token=)
-function RequireAuth({ children }) {
-  const { isSignedIn, isLoaded } = useUser();
-  const location = useLocation();
-
-  if (!isLoaded) return null;
-
-  if (!isSignedIn) {
-    const redirect = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`/login?redirect=${redirect}`} replace />;
-  }
-
-  return children;
-}
+import NotFound from "./pages/NotFound";
 
 function App() {
-  const { isSignedIn, isLoaded } = useUser();
-
-  if (!isLoaded) return null;
-
   return (
-    <>
+    <AuthProvider>
       <Routes>
-        <Route path="/" element={!isSignedIn ? <HomePage /> : <Navigate to="/dashboard" />} />
-        <Route path="/login" element={!isSignedIn ? <LoginPage /> : <Navigate to="/dashboard" />} />
+        {/* Public routes */}
+        <Route path="/login"    element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-        <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
-        <Route path="/problems" element={<RequireAuth><ProblemsPage /></RequireAuth>} />
-        <Route path="/problem/:id" element={<RequireAuth><ProblemPage /></RequireAuth>} />
-        <Route path="/session/:id" element={<RequireAuth><SessionPage /></RequireAuth>} />
+        {/* Redirect root to login */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+
+        {/* Interviewer dashboard — only interviewers can access */}
+        <Route
+          path="/dashboard/interviewer"
+          element={
+            <ProtectedRoute role="interviewer">
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Student dashboard — only students can access */}
+        <Route
+          path="/dashboard/student"
+          element={
+            <ProtectedRoute role="student">
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Session room — any logged-in user can join */}
+        <Route
+          path="/session/:roomId"
+          element={
+            <ProtectedRoute>
+              <SessionPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="*" element={<NotFound />} />
       </Routes>
-
-      <Toaster toastOptions={{ duration: 3000 }} />
-    </>
+    </AuthProvider>
   );
 }
 

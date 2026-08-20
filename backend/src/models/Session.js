@@ -1,54 +1,66 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
+const { randomBytes } = require("crypto");
+
+// Subdocument for the problem attached to a session
+const problemSchema = new mongoose.Schema({
+  problemId: { type: mongoose.Schema.Types.ObjectId, ref: "Problem" },
+  title:     { type: String },
+}, { _id: false });
 
 const sessionSchema = new mongoose.Schema(
   {
-    problem: {
+    roomId: {
       type: String,
       required: true,
+      unique: true,
+      default: () => randomBytes(4).toString("hex"),
+    },
+
+    title: {
+      type: String,
+      default: "Interview Session",
       trim: true,
-      maxlength: 150,
     },
-    difficulty: {
-      type: String,
-      enum: ["easy", "medium", "hard"],
-      required: true,
-    },
-    host: {
+
+    // Interviewer who created the session
+    interviewer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    participant: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+
+    // Optional problem attached by interviewer
+    problem: {
+      type: problemSchema,
       default: null,
     },
+
+    language: {
+      type: String,
+      default: "javascript",
+      enum: ["javascript", "python", "java", "cpp", "typescript"],
+    },
+
+    code: {
+      type: String,
+      default: "// Start coding here...",
+    },
+
     status: {
       type: String,
-      enum: ["active", "completed"],
+      enum: ["active", "ended"],
       default: "active",
     },
-    // stream video call ID
-    callId: {
-      type: String,
-      default: "",
-      unique: true,
-      sparse: true,
-    },
-    // secret token — only the host knows this; required to join
-    inviteToken: {
-      type: String,
-      required: true,
-      unique: true,
-    },
+
+    // Track who joined (student user refs + join time)
+    participants: [
+      {
+        user:     { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        joinedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );
 
-sessionSchema.index({ status: 1, createdAt: -1 });
-sessionSchema.index({ host: 1, status: 1, createdAt: -1 });
-sessionSchema.index({ participant: 1, status: 1, createdAt: -1 });
-
-const Session = mongoose.model("Session", sessionSchema);
-
-export default Session;
+module.exports = mongoose.model("Session", sessionSchema);

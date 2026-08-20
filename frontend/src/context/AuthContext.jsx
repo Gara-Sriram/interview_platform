@@ -1,54 +1,44 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import axiosInstance from "../lib/axios";
+import { createContext, useContext, useEffect, useState } from "react";
+import api from "../lib/api";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [user, setUser] = useState(null);       // logged-in user object
+  const [loading, setLoading] = useState(true); // true while checking cookie on app load
 
-  // Restore session on mount by calling /auth/me
+  // On first load, call /api/auth/me to check if the cookie is still valid.
+  // If it is, user is auto-logged-in. If not, user is null → redirect to login.
   useEffect(() => {
-    axiosInstance
-      .get("/auth/me")
-      .then((res) => setUser(res.data))
+    api.get("/api/auth/me")
+      .then((res) => setUser(res.data.user))
       .catch(() => setUser(null))
-      .finally(() => setIsLoaded(true));
+      .finally(() => setLoading(false));
   }, []);
 
-  const login = useCallback(async (email, password) => {
-    const res = await axiosInstance.post("/auth/login", { email, password });
-    setUser(res.data);
-    return res.data;
-  }, []);
+  const login = async (email, password) => {
+    const res = await api.post("/api/auth/login", { email, password });
+    setUser(res.data.user);
+    return res.data.user; // return so the component can redirect based on role
+  };
 
-  const register = useCallback(async (name, email, password) => {
-    const res = await axiosInstance.post("/auth/register", { name, email, password });
-    setUser(res.data);
-    return res.data;
-  }, []);
+  const register = async (name, email, password, role) => {
+    const res = await api.post("/api/auth/register", { name, email, password, role });
+    setUser(res.data.user);
+    return res.data.user;
+  };
 
-  const logout = useCallback(async () => {
-    await axiosInstance.post("/auth/logout");
+  const logout = async () => {
+    await api.post("/api/auth/logout");
     setUser(null);
-  }, []);
+  };
 
   return (
-    <AuthContext.Provider value={{ user, isLoaded, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-/** Main auth hook — exposes user, isLoaded, login, register, logout */
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
-  return ctx;
-}
-
-/** Drop-in replacement for Clerk's useUser() */
-export function useUser() {
-  const { user, isLoaded } = useAuth();
-  return { user, isLoaded, isSignedIn: !!user };
-}
+// Custom hook — components call useAuth() instead of useContext(AuthContext)
+export const useAuth = () => useContext(AuthContext);

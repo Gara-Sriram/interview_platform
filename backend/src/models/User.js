@@ -1,48 +1,36 @@
-import mongoose from "mongoose";
-import bcryptjs from "bcryptjs";
+const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: true,
+      required: [true, "Name is required"],
       trim: true,
-      maxlength: 100,
     },
+
     email: {
       type: String,
-      required: true,
+      required: [true, "Email is required"],
       unique: true,
-      trim: true,
       lowercase: true,
-      maxlength: 254,
+      trim: true,
     },
+
+    // Stored as a bcrypt hash — plain text password is never saved
     password: {
       type: String,
-      required: true,
-      minlength: 6,
+      required: [true, "Password is required"],
     },
-    profileImage: {
+
+    // interviewer → create sessions, pick problems
+    // student     → join sessions, practice problems
+    role: {
       type: String,
-      default: "",
+      enum: ["interviewer", "student"],
+      required: [true, "Role is required"],
     },
   },
-  { timestamps: true } // createdAt, updatedAt
+  { timestamps: true }
 );
 
-// Hash password before saving
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
-  const salt = await bcryptjs.genSalt(12);
-  this.password = await bcryptjs.hash(this.password, salt);
-  next();
-});
-
-// Compare password helper
-userSchema.methods.comparePassword = async function (candidatePassword) {
-  return bcryptjs.compare(candidatePassword, this.password);
-};
-
-const User = mongoose.model("User", userSchema);
-
-export default User;
+module.exports = mongoose.model("User", userSchema);
