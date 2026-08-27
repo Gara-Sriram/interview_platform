@@ -6,48 +6,82 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 
-// Dashboard placeholders (built in Part 7)
-import Dashboard from "./pages/Dashboard";
+// Dashboard pages
+import InterviewerDashboard from "./pages/InterviewerDashboard";
+import StudentDashboard from "./pages/StudentDashboard";
+
+// Session + misc
 import SessionPage from "./pages/SessionPage";
+import SessionReview from "./pages/SessionReview";
+import PracticeSheet from "./pages/PracticeSheet";
+import PracticeProblem from "./pages/PracticeProblem";
 import NotFound from "./pages/NotFound";
 
 function App() {
   return (
     <AuthProvider>
       <Routes>
-        {/* Public routes */}
+        {/* Public */}
         <Route path="/login"    element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/"         element={<Navigate to="/login" replace />} />
 
-        {/* Redirect root to login */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-
-        {/* Interviewer dashboard — only interviewers can access */}
+        {/* Interviewer only */}
         <Route
           path="/dashboard/interviewer"
           element={
             <ProtectedRoute role="interviewer">
-              <Dashboard />
+              <InterviewerDashboard />
             </ProtectedRoute>
           }
         />
 
-        {/* Student dashboard — only students can access */}
+        {/* Student only */}
         <Route
           path="/dashboard/student"
           element={
             <ProtectedRoute role="student">
-              <Dashboard />
+              <StudentDashboard />
             </ProtectedRoute>
           }
         />
 
-        {/* Session room — any logged-in user can join */}
+        {/* Session room — any logged-in user */}
         <Route
           path="/session/:roomId"
           element={
             <ProtectedRoute>
               <SessionPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Practice sheet — student only */}
+        <Route
+          path="/practice"
+          element={
+            <ProtectedRoute role="student">
+              <PracticeSheet />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Individual practice problem */}
+        <Route
+          path="/practice/:id"
+          element={
+            <ProtectedRoute role="student">
+              <PracticeProblem />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* AI Review — any logged-in user */}
+        <Route
+          path="/review/:roomId"
+          element={
+            <ProtectedRoute>
+              <SessionReview />
             </ProtectedRoute>
           }
         />

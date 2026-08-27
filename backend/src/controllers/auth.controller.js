@@ -3,11 +3,12 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 
 // Cookie options — centralised so all routes use the same config
+// sameSite:"none" is required when frontend (Vercel) and backend (Render) are on different domains
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "strict",
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  secure:   true,           // must be true when sameSite is "none"
+  sameSite: "none",         // allows cross-origin cookie (Vercel ↔ Render)
+  maxAge:   7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
 const generateToken = (userId) =>

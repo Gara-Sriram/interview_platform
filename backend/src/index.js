@@ -15,10 +15,11 @@ const app = express();
 // -------------------------------------------------------------------
 
 // credentials: true → browser sends httpOnly cookie on every request
+const CLIENT_ORIGIN = process.env.CLIENT_URL || "http://localhost:5173";
+
 app.use(
   cors({
-    
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: CLIENT_ORIGIN,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })
@@ -44,8 +45,9 @@ const server = http.createServer(app);
 // -------------------------------------------------------------------
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:5174",
+    origin: CLIENT_ORIGIN,
     methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
@@ -54,10 +56,14 @@ const io = new Server(server, {
 // We will import and attach route files here as we build them.
 // -------------------------------------------------------------------
 const sessionRoutes = require("./routes/session.routes");
-const authRoutes = require("./routes/auth.routes");
+const authRoutes    = require("./routes/auth.routes");
+const executeRoutes = require("./routes/execute.routes");
+const reviewRoutes  = require("./routes/review.routes");
 
 app.use("/api/sessions", sessionRoutes);
-app.use("/api/auth", authRoutes);
+app.use("/api/auth",     authRoutes);
+app.use("/api/execute",  executeRoutes);
+app.use("/api/sessions", reviewRoutes);  // POST /api/sessions/:roomId/review
 
 // -------------------------------------------------------------------
 // SOCKET EVENTS
