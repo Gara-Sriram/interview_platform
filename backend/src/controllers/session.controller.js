@@ -117,4 +117,27 @@ const endSession = async (req, res) => {
   }
 };
 
-module.exports = { createSession, getSessions, getSessionByRoomId, endSession };
+// ------------------------------------------------------------------
+// @desc    Get session info for review page — no status check
+// @route   GET /api/sessions/:roomId/review-info
+// @access  Protected
+// ------------------------------------------------------------------
+const getSessionForReview = async (req, res) => {
+  try {
+    const session = await Session.findOne({ roomId: req.params.roomId }).populate(
+      "interviewer", "name email"
+    );
+
+    if (!session) {
+      return res.status(404).json({ success: false, message: "Session not found" });
+    }
+
+    // Return session regardless of status (needed for post-session review)
+    res.json({ success: true, session });
+  } catch (err) {
+    console.error("Get review session error:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+module.exports = { createSession, getSessions, getSessionByRoomId, getSessionForReview, endSession };

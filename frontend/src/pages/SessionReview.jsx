@@ -34,19 +34,22 @@ export default function SessionReview() {
   const [error,    setError]    = useState("");
   const [fetched,  setFetched]  = useState(false); // did we already try loading?
 
-  // Load session info
+  // Use /review-info — returns session regardless of status (active or ended)
   useEffect(() => {
-    api.get(`/api/sessions/${roomId}`)
+    api.get(`/api/sessions/${roomId}/review-info`)
       .then((res) => {
         const s = res.data.session;
         setSession(s);
-        // If review already exists in DB, show it immediately
+        // If review already cached in DB, show it immediately
         if (s.aiReview) {
           setReview(s.aiReview);
           setFetched(true);
         }
       })
-      .catch(() => navigate("/dashboard/student"));
+      .catch((err) => {
+        alert(err.response?.data?.message || "Session not found.");
+        navigate(user?.role === "interviewer" ? "/dashboard/interviewer" : "/dashboard/student");
+      });
   }, [roomId]);
 
   const handleGenerate = async () => {
