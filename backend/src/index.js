@@ -72,12 +72,10 @@ const io = new Server(server, {
 const sessionRoutes = require("./routes/session.routes");
 const authRoutes    = require("./routes/auth.routes");
 const executeRoutes = require("./routes/execute.routes");
-const reviewRoutes  = require("./routes/review.routes");
 
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/auth",     authRoutes);
 app.use("/api/execute",  executeRoutes);
-app.use("/api/sessions", reviewRoutes);  // POST /api/sessions/:roomId/review
 
 // -------------------------------------------------------------------
 // SOCKET EVENTS
