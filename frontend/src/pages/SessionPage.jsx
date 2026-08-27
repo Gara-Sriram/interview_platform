@@ -30,7 +30,8 @@ export default function SessionPage() {
   const [outputError, setOutputError] = useState(false);
   const [running, setRunning] = useState(false);
   const [peers, setPeers] = useState([]);
-  const [activeTab, setActiveTab] = useState("video"); // "video" | "chat"
+  const [activeTab, setActiveTab] = useState("video");
+  const [copied, setCopied] = useState(false);
 
   const isInterviewer = user?.role === "interviewer";
 
@@ -200,6 +201,21 @@ export default function SessionPage() {
               "▶ Run"
             )}
           </button>
+
+          {/* Copy Link — interviewer only */}
+          {isInterviewer && (
+            <button
+              id="copy-link-btn"
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="text-sm border border-gray-700 hover:border-gray-500 text-gray-300 px-3 py-1.5 rounded-lg transition"
+            >
+              {copied ? "✓ Copied!" : "🔗 Copy Link"}
+            </button>
+          )}
 
           {/* End session — interviewer only */}
           {isInterviewer && (

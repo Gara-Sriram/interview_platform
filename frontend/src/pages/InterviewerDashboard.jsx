@@ -12,9 +12,8 @@ export default function InterviewerDashboard() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
-  const [selectedProblem, setSelectedProblem] = useState(null); // problem id or null
+  const [selectedProblem, setSelectedProblem] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [copied, setCopied] = useState(null);
 
   // Load past sessions on mount
   useEffect(() => {
@@ -49,11 +48,6 @@ export default function InterviewerDashboard() {
     }
   };
 
-  const copyLink = (roomId) => {
-    navigator.clipboard.writeText(`${window.location.origin}/session/${roomId}`);
-    setCopied(roomId);
-    setTimeout(() => setCopied(null), 2000);
-  };
 
   const handleLogout = async () => {
     await logout();
@@ -128,12 +122,6 @@ export default function InterviewerDashboard() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => copyLink(session.roomId)}
-                    className="text-xs px-3 py-1.5 border border-gray-700 hover:border-gray-500 rounded-lg text-gray-300 transition"
-                  >
-                    {copied === session.roomId ? "✓ Copied!" : "Copy Link"}
-                  </button>
                   {session.status === "active" && (
                     <button
                       onClick={() => navigate(`/session/${session.roomId}`)}
