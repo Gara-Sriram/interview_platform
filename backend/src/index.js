@@ -14,16 +14,31 @@ const app = express();
 // MIDDLEWARES
 // -------------------------------------------------------------------
 
-// credentials: true → browser sends httpOnly cookie on every request
+// Allow both the production Vercel URL and any Vercel preview deployment URLs
 const CLIENT_ORIGIN = process.env.CLIENT_URL || "http://localhost:5173";
 
-app.use(
-  cors({
-    origin: CLIENT_ORIGIN,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    credentials: true,
-  })
-);
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (Postman, mobile apps, server-to-server)
+    if (!origin) return callback(null, true);
+
+    // Allow exact match (production URL)
+    if (origin === CLIENT_ORIGIN) return callback(null, true);
+
+    // Allow any Vercel preview deployment for this project
+    // e.g. https://interview-platform-xxxx-sriram-garas-projects.vercel.app
+    if (origin.includes("vercel.app")) return callback(null, true);
+
+    // Allow localhost for development
+    if (origin.startsWith("http://localhost")) return callback(null, true);
+
+    callback(new Error("Not allowed by CORS"));
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 
 // Parse incoming JSON request bodies
 app.use(express.json());
@@ -45,9 +60,8 @@ const server = http.createServer(app);
 // -------------------------------------------------------------------
 const io = new Server(server, {
   cors: {
-    origin: CLIENT_ORIGIN,
-    methods: ["GET", "POST"],
-    credentials: true,
+    ...corsOptions,
+    origin: CLIENT_ORIGIN, // Socket.IO doesn't support function-based origin, use main URL
   },
 });
 
