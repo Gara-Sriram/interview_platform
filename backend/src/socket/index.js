@@ -93,6 +93,11 @@ module.exports = (io) => {
     socket.on("webrtc-answer",         ({ roomId, answer })    => socket.to(roomId).emit("webrtc-answer",         { answer }));
     socket.on("webrtc-ice-candidate",  ({ roomId, candidate }) => socket.to(roomId).emit("webrtc-ice-candidate",  { candidate }));
 
+    // session-ended — interviewer broadcasts to kick everyone out
+    socket.on("session-ended", ({ roomId }) => {
+      socket.to(roomId).emit("session-ended"); // notify all participants
+    });
+
     // ------------------------------------------------------------------
     // disconnect
     // ------------------------------------------------------------------

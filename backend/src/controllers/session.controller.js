@@ -10,10 +10,10 @@ const createSession = async (req, res) => {
     const { title, language, problem } = req.body;
 
     const session = await Session.create({
-      title: title || "Interview Session",
-      language: language || "javascript",
-      interviewer: req.user._id, // set from protect middleware
-      problem: problem || null,
+      title:       title    || "Interview Session",
+      language:    language || "javascript",
+      interviewer: req.user._id,
+      problem:     problem  || null,
     });
 
     res.status(201).json({ success: true, session });
@@ -33,13 +33,11 @@ const getSessions = async (req, res) => {
     let sessions;
 
     if (req.user.role === "interviewer") {
-      // Interviewer sees sessions they created
       sessions = await Session.find({ interviewer: req.user._id })
         .sort({ createdAt: -1 })
         .limit(20)
         .populate("interviewer", "name email");
     } else {
-      // Student sees sessions they participated in
       sessions = await Session.find({ "participants.user": req.user._id })
         .sort({ createdAt: -1 })
         .limit(20)
@@ -61,12 +59,31 @@ const getSessions = async (req, res) => {
 const getSessionByRoomId = async (req, res) => {
   try {
     const session = await Session.findOne({ roomId: req.params.roomId }).populate(
-      "interviewer",
-      "name email"
+      "interviewer", "name email"
     );
 
     if (!session) {
       return res.status(404).json({ success: false, message: "Session not found" });
+    }
+
+    // ── Block entry to ended sessions ──────────────────────────────
+    if (session.status === "ended") {
+      return res.status(410).json({
+        success: false,
+        message: "This session has ended",
+        status: "ended",
+      });
+    }
+
+    // ── Track student as a participant (only once) ──────────────────
+    if (req.user.role === "student") {
+      const alreadyIn = session.participants.some(
+        (p) => p.user.toString() === req.user._id.toString()
+      );
+      if (!alreadyIn) {
+        session.participants.push({ user: req.user._id });
+        await session.save();
+      }
     }
 
     res.json({ success: true, session });
@@ -77,7 +94,7 @@ const getSessionByRoomId = async (req, res) => {
 };
 
 // ------------------------------------------------------------------
-// @desc    End a session
+// @desc    End a session — marks as ended (kept in DB for history)
 // @route   PATCH /api/sessions/:roomId/end
 // @access  Protected (Interviewer only)
 // ------------------------------------------------------------------

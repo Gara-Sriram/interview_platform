@@ -42,13 +42,23 @@ export default function SessionPage() {
   // Load session data from API
   // ------------------------------------------------------------------
   useEffect(() => {
+    const dashPath = "/dashboard/" + (user?.role === "interviewer" ? "interviewer" : "student");
+
     api.get(`/api/sessions/${roomId}`)
       .then((res) => {
         const s = res.data.session;
         setSession(s);
         setLanguage(s.language || "javascript");
       })
-      .catch(() => navigate("/dashboard/" + (user?.role === "interviewer" ? "interviewer" : "student")))
+      .catch((err) => {
+        const status  = err.response?.status;
+        const message = err.response?.data?.message || "Session not found";
+
+        if (status === 410 || status === 404) {
+          alert(message); // "This session has ended" or "Session not found"
+        }
+        navigate(dashPath);
+      })
       .finally(() => setLoading(false));
   }, [roomId]);
 
@@ -84,12 +94,19 @@ export default function SessionPage() {
       setPeers((prev) => prev.filter((p) => p !== userName));
     });
 
+    // Interviewer ended session — kick student out
+    socket.on("session-ended", () => {
+      alert("The interviewer has ended this session.");
+      navigate("/dashboard/student");
+    });
+
     return () => {
       socket.off("session-state");
       socket.off("code-update");
       socket.off("language-update");
       socket.off("user-joined");
       socket.off("user-left");
+      socket.off("session-ended");
       socket.disconnect();
     };
   }, [user, roomId]);
@@ -139,9 +156,16 @@ export default function SessionPage() {
   // End session (interviewer only)
   // ------------------------------------------------------------------
   const handleEndSession = async () => {
-    if (!confirm("End this session?")) return;
-    await api.patch(`/api/sessions/${roomId}/end`);
-    navigate("/dashboard/interviewer");
+    if (!confirm("End this session? The student will be redirected.")) return;
+    try {
+      await api.patch(`/api/sessions/${roomId}/end`);
+      // Notify everyone in the room that session ended
+      socket.emit("session-ended", { roomId });
+    } catch (err) {
+      console.error("End session error:", err.message);
+    } finally {
+      navigate("/dashboard/interviewer");
+    }
   };
 
   if (loading) {
