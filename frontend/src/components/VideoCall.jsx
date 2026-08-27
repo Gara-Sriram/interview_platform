@@ -1,12 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import socket from "../lib/socket";
 
-// STUN servers — help browser discover its public IP for P2P connection
-// Google's free STUN servers work for most networks
+// ICE servers: STUN discovers public IP, TURN relays traffic when P2P fails.
+// STUN alone fails on symmetric NAT (mobile data, office networks, etc.)
+// These are free public TURN servers from Open Relay Project.
 const ICE_SERVERS = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
+    {
+      urls:       "turn:openrelay.metered.ca:80",
+      username:   "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls:       "turn:openrelay.metered.ca:443",
+      username:   "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls:       "turn:openrelay.metered.ca:443?transport=tcp",
+      username:   "openrelayproject",
+      credential: "openrelayproject",
+    },
   ],
 };
 

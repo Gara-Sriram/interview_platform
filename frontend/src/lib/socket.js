@@ -1,14 +1,21 @@
 import { io } from "socket.io-client";
 
-// ONE socket instance reused across the app.
-// transports: ["websocket"] — skip long-polling entirely.
-// On Render free tier, long-polling causes sync issues across different networks.
-const socket = io(import.meta.env.VITE_SOCKET_URL || "http://localhost:5000", {
+// Use VITE_SOCKET_URL if set, otherwise fall back to VITE_API_URL, then localhost.
+// This way if you forget to set VITE_SOCKET_URL in Vercel, it still works
+// as long as VITE_API_URL is set.
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ||
+  import.meta.env.VITE_API_URL    ||
+  "http://localhost:5000";
+
+const socket = io(SOCKET_URL, {
   autoConnect: false,
-  transports: ["websocket"],       // force WebSocket — no polling fallback
-  withCredentials: true,           // send cookies with socket handshake
+  // Allow both WebSocket AND polling — polling is fallback if WS fails.
+  // Forcing websocket-only causes silent failures on some Render setups.
+  transports: ["websocket", "polling"],
+  withCredentials: true,
   reconnectionAttempts: 5,
-  reconnectionDelay: 1000,
+  reconnectionDelay: 2000,
 });
 
 export default socket;
