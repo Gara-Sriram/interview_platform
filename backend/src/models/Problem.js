@@ -7,7 +7,7 @@ const exampleSchema = new mongoose.Schema({
 }, { _id: false });
 
 const testCaseSchema = new mongoose.Schema({
-  input:    { type: String, required: true },
+  input:    { type: String, default: "" },  // empty string is a valid test case input
   expected: { type: String, required: true },
 }, { _id: false });
 
