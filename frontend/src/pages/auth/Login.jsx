@@ -19,7 +19,11 @@ export default function Login() {
     try {
       const user = await login(form.email, form.password);
       // Redirect based on role
-      navigate(user.role === "interviewer" ? "/dashboard/interviewer" : "/dashboard/student");
+      const dest =
+        user.role === "admin"       ? "/dashboard/admin" :
+        user.role === "interviewer" ? "/dashboard/interviewer" :
+                                      "/dashboard/student";
+      navigate(dest);
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");
     } finally {

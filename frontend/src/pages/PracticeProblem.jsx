@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Editor from "@monaco-editor/react";
-import { getProblem } from "../data/problems";
 import api from "../lib/api";
 
 const LANGUAGES = ["javascript", "python", "java", "cpp", "typescript"];
@@ -13,30 +12,35 @@ const DIFF_STYLE = {
 };
 
 export default function PracticeProblem() {
-  const { id } = useParams();
+  const { id }   = useParams();
   const navigate = useNavigate();
-  const problem = getProblem(id);
 
-  const [language, setLanguage] = useState("javascript");
-  const [code, setCode] = useState(problem?.starterCode?.javascript || "");
-  const [output, setOutput] = useState("");
+  const [problem,     setProblem]     = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [language,    setLanguage]    = useState("javascript");
+  const [code,        setCode]        = useState("");
+  const [output,      setOutput]      = useState("");
   const [outputError, setOutputError] = useState(false);
-  const [running, setRunning] = useState(false);
+  const [running,     setRunning]     = useState(false);
 
-  if (!problem) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">
-        Problem not found.{" "}
-        <button className="ml-2 text-blue-400 underline" onClick={() => navigate("/practice")}>
-          Back
-        </button>
-      </div>
-    );
-  }
+  // Fetch problem from API
+  useEffect(() => {
+    api.get(`/api/problems/${id}`)
+      .then((res) => {
+        const p = res.data.problem;
+        setProblem(p);
+        setCode(p.starterCode?.javascript || "// Write your solution here\n");
+      })
+      .catch(() => {
+        alert("Problem not found.");
+        navigate("/practice");
+      })
+      .finally(() => setLoading(false));
+  }, [id]);
 
   const handleLanguageChange = (lang) => {
     setLanguage(lang);
-    setCode(problem.starterCode[lang] || "");
+    setCode(problem?.starterCode?.[lang] || "// Write your solution here\n");
     setOutput("");
   };
 
@@ -56,6 +60,14 @@ export default function PracticeProblem() {
     }
   };
 
+  if (loading) return (
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  if (!problem) return null;
+
   return (
     <div className="h-screen bg-gray-950 text-white flex flex-col overflow-hidden">
 
@@ -68,13 +80,12 @@ export default function PracticeProblem() {
           ← Problems
         </button>
         <span className="text-gray-700">|</span>
-        <span className="text-sm font-medium">{problem.id}. {problem.title}</span>
+        <span className="text-sm font-medium">{problem.title}</span>
         <span className={`text-xs px-2 py-0.5 rounded-full capitalize font-medium ${DIFF_STYLE[problem.difficulty]}`}>
           {problem.difficulty}
         </span>
 
         <div className="ml-auto flex items-center gap-3">
-          {/* Language selector */}
           <select
             value={language}
             onChange={(e) => handleLanguageChange(e.target.value)}
@@ -85,7 +96,6 @@ export default function PracticeProblem() {
             ))}
           </select>
 
-          {/* Run */}
           <button
             id="run-btn"
             onClick={handleRun}
@@ -105,60 +115,58 @@ export default function PracticeProblem() {
         {/* Left: Problem Description */}
         <div className="w-96 flex-shrink-0 border-r border-gray-800 overflow-y-auto p-5 space-y-5">
 
-          {/* Title */}
           <div>
             <h2 className="text-lg font-semibold">{problem.title}</h2>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
-              {problem.tags.map((t) => (
-                <span key={t} className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded">
-                  {t}
-                </span>
+              {(problem.tags || []).map((t) => (
+                <span key={t} className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded">{t}</span>
               ))}
             </div>
           </div>
 
-          {/* Description */}
           <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">
             {problem.description}
           </p>
 
           {/* Examples */}
-          <div className="space-y-3">
-            {problem.examples.map((ex, i) => (
-              <div key={i} className="bg-gray-900 border border-gray-800 rounded-lg p-3 text-sm">
-                <p className="text-gray-500 text-xs mb-1">Example {i + 1}</p>
-                <p><span className="text-gray-400">Input:</span> <code className="text-gray-200">{ex.input}</code></p>
-                <p><span className="text-gray-400">Output:</span> <code className="text-green-400">{ex.output}</code></p>
-                {ex.explanation && (
-                  <p className="text-gray-500 text-xs mt-1">
-                    <span className="text-gray-500">Explanation:</span> {ex.explanation}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
+          {(problem.examples || []).length > 0 && (
+            <div className="space-y-3">
+              {problem.examples.map((ex, i) => (
+                <div key={i} className="bg-gray-900 border border-gray-800 rounded-lg p-3 text-sm">
+                  <p className="text-gray-500 text-xs mb-1">Example {i + 1}</p>
+                  <p><span className="text-gray-400">Input:</span> <code className="text-gray-200">{ex.input}</code></p>
+                  <p><span className="text-gray-400">Output:</span> <code className="text-green-400">{ex.output}</code></p>
+                  {ex.explanation && (
+                    <p className="text-gray-500 text-xs mt-1">
+                      <span className="text-gray-500">Explanation:</span> {ex.explanation}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Constraints */}
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Constraints</p>
-            <ul className="space-y-1">
-              {problem.constraints.map((c, i) => (
-                <li key={i} className="text-xs text-gray-400 flex gap-2">
-                  <span className="text-gray-600">•</span>{c}
-                </li>
-              ))}
-            </ul>
-          </div>
+          {(problem.constraints || []).length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Constraints</p>
+              <ul className="space-y-1">
+                {problem.constraints.map((c, i) => (
+                  <li key={i} className="text-xs text-gray-400 flex gap-2">
+                    <span className="text-gray-600">•</span>{c}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* Right: Editor + Output */}
         <div className="flex-1 flex flex-col overflow-hidden">
-
-          {/* Monaco Editor */}
           <div className="flex-1 overflow-hidden">
             <Editor
               height="100%"
-              language={language === "cpp" ? "cpp" : language}
+              language={language}
               value={code}
               onChange={(val) => setCode(val)}
               theme="vs-dark"
@@ -174,7 +182,6 @@ export default function PracticeProblem() {
             />
           </div>
 
-          {/* Output */}
           <div className="h-44 flex-shrink-0 border-t border-gray-800 bg-gray-900">
             <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-800">
               <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Output</span>
@@ -182,7 +189,7 @@ export default function PracticeProblem() {
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
                   outputError ? "bg-red-500/10 text-red-400" : "bg-green-500/10 text-green-400"
                 }`}>
-                  {outputError ? "Error" : "Accepted"}
+                  {outputError ? "Error" : "Success"}
                 </span>
               )}
             </div>

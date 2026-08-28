@@ -21,7 +21,11 @@ export default function ProtectedRoute({ children, role }) {
 
   // Wrong role — redirect to their own dashboard
   if (role && user.role !== role) {
-    return <Navigate to={user.role === "interviewer" ? "/dashboard/interviewer" : "/dashboard/student"} replace />;
+    const dest =
+      user.role === "admin"       ? "/dashboard/admin" :
+      user.role === "interviewer" ? "/dashboard/interviewer" :
+                                    "/dashboard/student";
+    return <Navigate to={dest} replace />;
   }
 
   return children;

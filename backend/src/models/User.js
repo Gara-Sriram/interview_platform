@@ -24,9 +24,10 @@ const userSchema = new mongoose.Schema(
 
     // interviewer → create sessions, pick problems
     // student     → join sessions, practice problems
+    // admin       → manage problems, full access
     role: {
       type: String,
-      enum: ["interviewer", "student"],
+      enum: ["interviewer", "student", "admin"],
       required: [true, "Role is required"],
     },
   },

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { PROBLEMS } from "../data/problems";
+import api from "../lib/api";
 
 const DIFF_STYLE = {
   easy:   "bg-green-500/10  text-green-400  border border-green-500/20",
@@ -12,16 +12,26 @@ const DIFF_STYLE = {
 export default function PracticeSheet() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [filter, setFilter] = useState("all"); // all | easy | medium | hard
+
+  const [problems, setProblems] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [filter,   setFilter]   = useState("all");
+
+  useEffect(() => {
+    api.get("/api/problems")
+      .then((res) => setProblems(res.data.problems))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = filter === "all"
-    ? PROBLEMS
-    : PROBLEMS.filter((p) => p.difficulty === filter);
+    ? problems
+    : problems.filter((p) => p.difficulty === filter);
 
   const counts = {
-    easy:   PROBLEMS.filter((p) => p.difficulty === "easy").length,
-    medium: PROBLEMS.filter((p) => p.difficulty === "medium").length,
-    hard:   PROBLEMS.filter((p) => p.difficulty === "hard").length,
+    easy:   problems.filter((p) => p.difficulty === "easy").length,
+    medium: problems.filter((p) => p.difficulty === "medium").length,
+    hard:   problems.filter((p) => p.difficulty === "hard").length,
   };
 
   return (
@@ -52,7 +62,7 @@ export default function PracticeSheet() {
         {/* Header + Stats */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold mb-1">DSA Practice Sheet</h2>
-          <p className="text-gray-400 text-sm">10 curated problems to sharpen your interview skills</p>
+          <p className="text-gray-400 text-sm">{problems.length} problems to sharpen your interview skills</p>
 
           <div className="flex gap-3 mt-4">
             {["all", "easy", "medium", "hard"].map((d) => (
@@ -69,40 +79,52 @@ export default function PracticeSheet() {
                 }`}
               >
                 {d === "all"
-                  ? `All (${PROBLEMS.length})`
+                  ? `All (${problems.length})`
                   : `${d.charAt(0).toUpperCase() + d.slice(1)} (${counts[d]})`}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Problem List */}
-        <div className="space-y-2">
-          {filtered.map((problem) => (
-            <div
-              key={problem.id}
-              onClick={() => navigate(`/practice/${problem.id}`)}
-              className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 flex items-center justify-between cursor-pointer hover:border-gray-600 hover:bg-gray-900/80 transition group"
-            >
-              <div className="flex items-center gap-4">
-                <span className="text-gray-600 text-sm font-mono w-6">{problem.id}.</span>
-                <div>
-                  <p className="font-medium group-hover:text-blue-400 transition">{problem.title}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    {problem.tags.slice(0, 3).map((tag) => (
-                      <span key={tag} className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded">
-                        {tag}
-                      </span>
-                    ))}
+        {/* Loading */}
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-20 text-gray-500">
+            <p className="text-4xl mb-3">📭</p>
+            <p>{problems.length === 0 ? "No problems added yet. Ask your admin to add some!" : "No problems match this filter."}</p>
+          </div>
+        ) : (
+          /* Problem List */
+          <div className="space-y-2">
+            {filtered.map((problem, i) => (
+              <div
+                key={problem._id}
+                onClick={() => navigate(`/practice/${problem._id}`)}
+                className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 flex items-center justify-between cursor-pointer hover:border-gray-600 hover:bg-gray-900/80 transition group"
+              >
+                <div className="flex items-center gap-4">
+                  <span className="text-gray-600 text-sm font-mono w-6">{i + 1}.</span>
+                  <div>
+                    <p className="font-medium group-hover:text-blue-400 transition">{problem.title}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {(problem.tags || []).slice(0, 3).map((tag) => (
+                        <span key={tag} className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
+                <span className={`text-xs px-2.5 py-1 rounded-full capitalize font-medium ${DIFF_STYLE[problem.difficulty]}`}>
+                  {problem.difficulty}
+                </span>
               </div>
-              <span className={`text-xs px-2.5 py-1 rounded-full capitalize font-medium ${DIFF_STYLE[problem.difficulty]}`}>
-                {problem.difficulty}
-              </span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

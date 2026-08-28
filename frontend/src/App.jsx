@@ -3,19 +3,23 @@ import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 // Auth pages
-import Login from "./pages/auth/Login";
+import Login    from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 
 // Dashboard pages
 import InterviewerDashboard from "./pages/InterviewerDashboard";
-import StudentDashboard from "./pages/StudentDashboard";
+import StudentDashboard     from "./pages/StudentDashboard";
+import AdminDashboard       from "./pages/AdminDashboard";
+
+// Admin problem management
+import AdminProblemForm from "./pages/AdminProblemForm";
 
 // Session + misc
-import SessionPage from "./pages/SessionPage";
-import SessionReview from "./pages/SessionReview";
-import PracticeSheet from "./pages/PracticeSheet";
+import SessionPage    from "./pages/SessionPage";
+import SessionReview  from "./pages/SessionReview";
+import PracticeSheet  from "./pages/PracticeSheet";
 import PracticeProblem from "./pages/PracticeProblem";
-import NotFound from "./pages/NotFound";
+import NotFound       from "./pages/NotFound";
 
 function App() {
   return (
@@ -42,6 +46,32 @@ function App() {
           element={
             <ProtectedRoute role="student">
               <StudentDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Admin only */}
+        <Route
+          path="/dashboard/admin"
+          element={
+            <ProtectedRoute role="admin">
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/problems/new"
+          element={
+            <ProtectedRoute role="admin">
+              <AdminProblemForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/problems/:id/edit"
+          element={
+            <ProtectedRoute role="admin">
+              <AdminProblemForm />
             </ProtectedRoute>
           }
         />
